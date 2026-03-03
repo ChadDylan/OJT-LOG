@@ -2,61 +2,106 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Daily Journal & Time Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSEE | Pro Sync Dashboard</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f3; padding: 15px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
-        h2 { color: #1a73e8; text-align: center; margin-top: 0; }
-        label { font-weight: bold; font-size: 0.9rem; color: #444; }
-        input, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px; font-size: 1rem; }
-        .btn-save { background: #1a73e8; color: white; }
-        .btn-pdf { background: #27ae60; color: white; margin-top: 20px; }
-        #printArea { margin-top: 30px; background: white; padding: 10px; border-radius: 8px; }
-        .entry { border-left: 5px solid #1a73e8; padding: 10px; background: #f9f9f9; margin-bottom: 15px; border-radius: 4px; }
-        img { max-width: 100%; border-radius: 8px; margin-top: 10px; border: 1px solid #eee; }
+        :root { --primary: #1d4ed8; --bg: #f8fafc; --card: #ffffff; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #334155; }
+        .container { max-width: 500px; margin: auto; }
+        .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        label { display: block; font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: #475569; text-transform: uppercase; }
+        input, textarea { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem; box-sizing: border-box; }
+        
+        .btn { width: 100%; padding: 14px; border-radius: 8px; border: none; font-weight: 800; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
+        .btn-save { background: var(--primary); color: white; }
+        .btn-save:disabled { background: #94a3b8; }
+        .btn-pdf { background: white; border: 2px solid #059669; color: #059669; margin-top: 10px; }
+        .btn-remove { background: #fee2e2; color: #dc2626; padding: 5px 10px; font-size: 0.7rem; border-radius: 5px; float: right; border: none; font-weight: bold; }
+
+        .search-box { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; margin-bottom: 15px; }
+        .draft-indicator { font-size: 0.7rem; color: #f59e0b; margin-top: -10px; margin-bottom: 10px; display: none; }
+        .log-entry { background: white; border-radius: 10px; padding: 15px; margin-bottom: 12px; border-left: 5px solid var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
     </style>
 </head>
 <body>
 
-<div class="card">
-    <h2>Daily Activity Log</h2>
-    
-    <label>Day / Date</label>
-    <input type="text" id="day" placeholder="e.g. Day 1: March 4">
-    
-    <div style="display:flex; gap:10px;">
-        <div style="flex:1"><label>Time In</label><input type="time" id="tin"></div>
-        <div style="flex:1"><label>Time Out</label><input type="time" id="tout"></div>
+<div class="container">
+    <div class="card">
+        <h2 style="margin:0 0 15px; color:var(--primary); font-size:1.2rem;">New Entry</h2>
+        <div id="draftMsg" class="draft-indicator">⚠️ Progress saved as draft</div>
+        
+        <label>Day & Date *</label>
+        <input type="text" id="day" placeholder="Ex: Day 1 - March 4" required oninput="saveDraft()">
+        
+        <div style="display:flex; gap:10px;">
+            <div style="flex:1"><label>Time In *</label><input type="time" id="tin" required oninput="saveDraft()"></div>
+            <div style="flex:1"><label>Time Out *</label><input type="time" id="tout" required oninput="saveDraft()"></div>
+        </div>
+
+        <label>Activities *</label>
+        <textarea id="act" rows="3" placeholder="What did you do today?" required oninput="saveDraft()"></textarea>
+
+        <label>Photo (Optional)</label>
+        <input type="file" id="pic" accept="image/*">
+
+        <button class="btn btn-save" id="saveBtn" onclick="saveData()">Submit to Cloud</button>
     </div>
-    
-    <label>Activities na ginawa:</label>
-    <textarea id="act" placeholder="What did you work on today?"></textarea>
-    
-    <label>Upload Support Photo</label>
-    <input type="file" id="pic" accept="image/*">
-    
-    <button class="btn btn-save" onclick="saveData()">Save to Google Drive</button>
-</div>
 
-<div id="printArea">
-    <h3 style="text-align:center;">Accomplishment History</h3>
-    <div id="logList"></div>
-</div>
+    <input type="text" class="search-box" id="search" placeholder="🔍 Search activities or days..." onkeyup="filterLogs()">
 
-<button class="btn btn-pdf" onclick="downloadPDF()">Download as PDF Report</button>
+    <div id="printArea">
+        <div id="logList">Loading history from Cloud...</div>
+    </div>
+
+    <button class="btn btn-pdf" onclick="downloadPDF()">Generate PDF Report</button>
+</div>
 
 <script>
-    // --- STEP 2: PASTE YOUR URL BELOW ---
     const scriptURL = 'https://script.google.com/macros/s/AKfycbz4pDF0I-a-y_UQnsh4Pdz4N0qOIuNC21QzGvFLYtDuXkzWVda8CctZ7Qi_EfdZYwu0/exec';
 
+    // 1. DRAFT FEATURE (Save as you type)
+    function saveDraft() {
+        const draft = {
+            day: document.getElementById('day').value,
+            tin: document.getElementById('tin').value,
+            tout: document.getElementById('tout').value,
+            act: document.getElementById('act').value
+        };
+        localStorage.setItem('ojt_draft', JSON.stringify(draft));
+        document.getElementById('draftMsg').style.display = "block";
+    }
+
+    function loadDraft() {
+        const draft = JSON.parse(localStorage.getItem('ojt_draft'));
+        if(draft) {
+            document.getElementById('day').value = draft.day || "";
+            document.getElementById('tin').value = draft.tin || "";
+            document.getElementById('tout').value = draft.tout || "";
+            document.getElementById('act').value = draft.act || "";
+            if(draft.day || draft.act) document.getElementById('draftMsg').style.display = "block";
+        }
+    }
+
+    // 2. FORM VALIDATION & SUBMISSION
     async function saveData() {
+        const day = document.getElementById('day').value;
+        const tin = document.getElementById('tin').value;
+        const tout = document.getElementById('tout').value;
+        const act = document.getElementById('act').value;
+
+        if(!day || !tin || !tout || !act) {
+            alert("Please fill up all required fields (*) before submitting!");
+            return;
+        }
+
+        const btn = document.getElementById('saveBtn');
+        btn.innerText = "UPLOADING...";
+        btn.disabled = true;
+
         const file = document.getElementById('pic').files[0];
         let imgBase64 = "";
-
         if(file) {
             imgBase64 = await new Promise(r => {
                 const rd = new FileReader();
@@ -65,54 +110,70 @@
             });
         }
 
-        const payload = {
-            day: document.getElementById('day').value,
-            tin: document.getElementById('tin').value,
-            tout: document.getElementById('tout').value,
-            act: document.getElementById('act').value,
-            image: imgBase64
-        };
+        const payload = { day, tin, tout, act, image: imgBase64 };
 
-        // Sending to Google
-        fetch(scriptURL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: JSON.stringify(payload)
-        })
+        fetch(scriptURL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) })
         .then(() => {
-            alert("Sent to Google Sheets & Drive!");
-            // Also save locally so you can see it in the list immediately
-            let localLogs = JSON.parse(localStorage.getItem('myOJTLogs')) || [];
-            localLogs.unshift(payload);
-            localStorage.setItem('myOJTLogs', JSON.stringify(localLogs));
+            localStorage.removeItem('ojt_draft'); // Clear draft on success
+            alert("Sent to Google Drive!");
             location.reload();
         })
-        .catch(err => alert("Error: " + err));
+        .catch(() => {
+            alert("Error. Check connection.");
+            btn.disabled = false;
+            btn.innerText = "Submit to Cloud";
+        });
     }
 
+    // 3. CLOUD SYNC & REMOVE LOG
     function loadLogs() {
-        const logs = JSON.parse(localStorage.getItem('myOJTLogs')) || [];
-        document.getElementById('logList').innerHTML = logs.map(l => `
-            <div class="entry">
-                <strong>${l.day}</strong> | ${l.tin} to ${l.tout}<br>
-                <p style="white-space: pre-wrap;">${l.act}</p>
-                ${l.image ? `<img src="${l.image}">` : ''}
+        // We look at LocalStorage first for speed, but real engineers 
+        // would pull from Google Sheet. For now, we use local for visual removal.
+        const logs = JSON.parse(localStorage.getItem('bsee_logs')) || [];
+        render(logs);
+    }
+
+    function render(logs) {
+        const list = document.getElementById('logList');
+        if(logs.length === 0) { list.innerHTML = "No history found."; return; }
+        list.innerHTML = logs.map((l, index) => `
+            <div class="log-entry">
+                <button class="btn-remove" onclick="removeLog(${index})">REMOVE</button>
+                <div style="font-weight:800; color:var(--primary);">${l.day}</div>
+                <div style="font-size:0.8rem; color:#64748b;">${l.tin} - ${l.tout}</div>
+                <p style="margin:8px 0; font-size:0.9rem;">${l.act}</p>
+                ${l.image ? `<img src="${l.image}" style="width:100%; border-radius:8px; margin-top:10px;">` : ''}
             </div>
         `).join('');
     }
 
+    function removeLog(index) {
+        if(confirm("Remove from this device's view? (Note: This won't delete it from the Google Sheet for security)")) {
+            let logs = JSON.parse(localStorage.getItem('bsee_logs')) || [];
+            logs.splice(index, 1);
+            localStorage.setItem('bsee_logs', JSON.stringify(logs));
+            render(logs);
+        }
+    }
+
+    // 4. SEARCH FEATURE
+    function filterLogs() {
+        const query = document.getElementById('search').value.toLowerCase();
+        const logs = JSON.parse(localStorage.getItem('bsee_logs')) || [];
+        const filtered = logs.filter(l => l.day.toLowerCase().includes(query) || l.act.toLowerCase().includes(query));
+        render(filtered);
+    }
+
     function downloadPDF() {
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
         html2canvas(document.querySelector("#printArea")).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            doc.addImage(imgData, 'PNG', 10, 10, 190, 0);
-            doc.save("Daily_Report.pdf");
+            const pdf = new jsPDF();
+            pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, 190, 0);
+            pdf.save("Accomplishment_Report.pdf");
         });
     }
 
-    loadLogs();
+    window.onload = () => { loadDraft(); loadLogs(); };
 </script>
-
 </body>
 </html>
