@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Daily Journal & Time Tracker</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f3; padding: 15px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 450px; margin: auto; }
+        h2 { color: #1a73e8; text-align: center; margin-top: 0; }
+        label { font-weight: bold; font-size: 0.9rem; color: #444; }
+        input, textarea { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px; font-size: 1rem; }
+        .btn-save { background: #1a73e8; color: white; }
+        .btn-pdf { background: #27ae60; color: white; margin-top: 20px; }
+        #printArea { margin-top: 30px; background: white; padding: 10px; border-radius: 8px; }
+        .entry { border-left: 5px solid #1a73e8; padding: 10px; background: #f9f9f9; margin-bottom: 15px; border-radius: 4px; }
+        img { max-width: 100%; border-radius: 8px; margin-top: 10px; border: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Daily Activity Log</h2>
+    
+    <label>Day / Date</label>
+    <input type="text" id="day" placeholder="e.g. Day 1: March 4">
+    
+    <div style="display:flex; gap:10px;">
+        <div style="flex:1"><label>Time In</label><input type="time" id="tin"></div>
+        <div style="flex:1"><label>Time Out</label><input type="time" id="tout"></div>
+    </div>
+    
+    <label>Activities na ginawa:</label>
+    <textarea id="act" placeholder="What did you work on today?"></textarea>
+    
+    <label>Upload Support Photo</label>
+    <input type="file" id="pic" accept="image/*">
+    
+    <button class="btn btn-save" onclick="saveData()">Save to Google Drive</button>
+</div>
+
+<div id="printArea">
+    <h3 style="text-align:center;">Accomplishment History</h3>
+    <div id="logList"></div>
+</div>
+
+<button class="btn btn-pdf" onclick="downloadPDF()">Download as PDF Report</button>
+
+<script>
+    // --- STEP 2: PASTE YOUR URL BELOW ---
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbz4pDF0I-a-y_UQnsh4Pdz4N0qOIuNC21QzGvFLYtDuXkzWVda8CctZ7Qi_EfdZYwu0/exec';
+
+    async function saveData() {
+        const file = document.getElementById('pic').files[0];
+        let imgBase64 = "";
+
+        if(file) {
+            imgBase64 = await new Promise(r => {
+                const rd = new FileReader();
+                rd.onload = () => r(rd.result);
+                rd.readAsDataURL(file);
+            });
+        }
+
+        const payload = {
+            day: document.getElementById('day').value,
+            tin: document.getElementById('tin').value,
+            tout: document.getElementById('tout').value,
+            act: document.getElementById('act').value,
+            image: imgBase64
+        };
+
+        // Sending to Google
+        fetch(scriptURL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify(payload)
+        })
+        .then(() => {
+            alert("Sent to Google Sheets & Drive!");
+            // Also save locally so you can see it in the list immediately
+            let localLogs = JSON.parse(localStorage.getItem('myOJTLogs')) || [];
+            localLogs.unshift(payload);
+            localStorage.setItem('myOJTLogs', JSON.stringify(localLogs));
+            location.reload();
+        })
+        .catch(err => alert("Error: " + err));
+    }
+
+    function loadLogs() {
+        const logs = JSON.parse(localStorage.getItem('myOJTLogs')) || [];
+        document.getElementById('logList').innerHTML = logs.map(l => `
+            <div class="entry">
+                <strong>${l.day}</strong> | ${l.tin} to ${l.tout}<br>
+                <p style="white-space: pre-wrap;">${l.act}</p>
+                ${l.image ? `<img src="${l.image}">` : ''}
+            </div>
+        `).join('');
+    }
+
+    function downloadPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        html2canvas(document.querySelector("#printArea")).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            doc.addImage(imgData, 'PNG', 10, 10, 190, 0);
+            doc.save("Daily_Report.pdf");
+        });
+    }
+
+    loadLogs();
+</script>
+
+</body>
+</html>
